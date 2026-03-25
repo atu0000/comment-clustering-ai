@@ -47,7 +47,7 @@ comment-clustering-ai/
 ├── docs/              # 要件定義・設計書
 ├── requirements.txt
 └── README.md
-
+```
 
 ---
 
@@ -58,3 +58,4 @@ py -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 py -m src.main
+```
