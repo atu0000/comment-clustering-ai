@@ -321,3 +321,45 @@ def search_groups(
     finally:
         con.close()
 
+
+def delete_runs(db_path: str | Path, run_ids: list[str]) -> int:
+    """
+    指定した run_id を削除する（複数対応）。
+
+    runs を削除すると、外部キーの ON DELETE CASCADE により
+    grouped_comments / comment_details も自動的に削除される。
+
+    Returns
+    -------
+    int
+        削除対象として指定された run_id の件数（存在しないIDも含む）。
+    """
+    ensure_schema(db_path)
+    if len(run_ids) == 0:
+        return 0
+
+    con = _connect(db_path)
+    try:
+        con.executemany(
+            "DELETE FROM runs WHERE run_id = ?",
+            [(rid,) for rid in run_ids],
+        )
+        con.commit()
+        return len(run_ids)
+    finally:
+        con.close()
+
+
+def delete_all_runs(db_path: str | Path) -> None:
+    """
+    全履歴（runs）を削除する。
+    CASCADE により明細・集計も削除される。
+    """
+    ensure_schema(db_path)
+    con = _connect(db_path)
+    try:
+        con.execute("DELETE FROM runs;")
+        con.commit()
+    finally:
+        con.close()
+

@@ -25,6 +25,8 @@ import streamlit as st
 from src import config
 from src.db import (
     create_run,
+    delete_all_runs,
+    delete_runs,
     list_runs,
     load_comment_details,
     load_grouped_comments,
@@ -185,8 +187,87 @@ div[data-testid="stFileUploaderDropzone"] button::after {
 
         colA, colB = st.columns([2, 1])
         with colA:
-            runs_df = list_runs(config.DB_PATH, limit=50)
-            st.dataframe(runs_df, use_container_width=True)
+            st.markdown("### run一覧（複数選択）")
+
+            if "runs_editor_df" not in st.session_state:
+                base = list_runs(config.DB_PATH, limit=50)
+                base.insert(0, "選択", False)
+                st.session_state["runs_editor_df"] = base
+
+            top_btns = st.columns([1, 1, 2])
+            with top_btns[0]:
+                if st.button("全選択"):
+                    df0 = st.session_state["runs_editor_df"].copy()
+                    df0["選択"] = True
+                    st.session_state["runs_editor_df"] = df0
+            with top_btns[1]:
+                if st.button("全解除"):
+                    df0 = st.session_state["runs_editor_df"].copy()
+                    df0["選択"] = False
+                    st.session_state["runs_editor_df"] = df0
+
+            edited = st.data_editor(
+                st.session_state["runs_editor_df"],
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "選択": st.column_config.CheckboxColumn("選択", help="複数選択して削除できます"),
+                },
+                disabled=["run_id", "created_at", "input_path", "model_name", "similarity_threshold"],
+                key="runs_editor",
+            )
+            st.session_state["runs_editor_df"] = edited
+
+            selected_ids = (
+                edited.loc[edited["選択"] == True, "run_id"].astype(str).tolist()  # noqa: E712
+                if "run_id" in edited.columns
+                else []
+            )
+
+            st.caption(f"選択中: {len(selected_ids)} 件")
+
+            st.markdown("### 削除")
+            del_cols = st.columns([1, 1, 2])
+            with del_cols[0]:
+                if st.button("選択したrunを削除", type="primary", disabled=len(selected_ids) == 0):
+                    st.session_state["confirm_delete_selected"] = True
+            with del_cols[1]:
+                if st.button("全履歴を全消し", disabled=len(edited) == 0):
+                    st.session_state["confirm_delete_all"] = True
+
+            if st.session_state.get("confirm_delete_selected", False):
+                st.warning("選択した run を削除します。よろしいですか？（集計・明細も一緒に削除されます）")
+                c1, c2 = st.columns(2)
+                with c1:
+                    if st.button("はい（削除）", key="do_delete_selected"):
+                        delete_runs(config.DB_PATH, selected_ids)
+                        st.session_state["confirm_delete_selected"] = False
+                        # 一覧を再読込
+                        base = list_runs(config.DB_PATH, limit=50)
+                        base.insert(0, "選択", False)
+                        st.session_state["runs_editor_df"] = base
+                        st.success("削除しました。")
+                        st.rerun()
+                with c2:
+                    if st.button("キャンセル", key="cancel_delete_selected"):
+                        st.session_state["confirm_delete_selected"] = False
+
+            if st.session_state.get("confirm_delete_all", False):
+                st.error("全履歴を削除します。よろしいですか？（復元できません）")
+                c1, c2 = st.columns(2)
+                with c1:
+                    if st.button("はい（全消し）", key="do_delete_all"):
+                        delete_all_runs(config.DB_PATH)
+                        st.session_state["confirm_delete_all"] = False
+                        base = list_runs(config.DB_PATH, limit=50)
+                        base.insert(0, "選択", False)
+                        st.session_state["runs_editor_df"] = base
+                        st.success("全履歴を削除しました。")
+                        st.rerun()
+                with c2:
+                    if st.button("キャンセル", key="cancel_delete_all"):
+                        st.session_state["confirm_delete_all"] = False
+
         with colB:
             query = st.text_input("検索（label / summary）", value="")
             if query.strip():
