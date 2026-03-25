@@ -1,0 +1,3 @@
+comment-clustering-ai — ドキュメント置き場
+
+ここに設計メモ、API 仕様、データ形式の説明などを Markdown またはテキストで追加できます。
