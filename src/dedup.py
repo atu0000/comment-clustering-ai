@@ -35,11 +35,10 @@ def build_person_key(row: pd.Series, name_column: str, ip_column: str) -> str:
     """
     1行分の同一人物キーを返す（詳細設計 5.6）。
 
-    優先順位:
-        1. name と ip が両方ある → ``"{name}_{ip}"``（サンプル出力の ``田中_192.168.0.1`` 形式）
-        2. ip のみ
-        3. name のみ
-        4. どちらもない → ``record_id``（列 ``config.RECORD_ID_COLUMN``）が取れればそれ、なければ行ラベル
+    優先順位（厳しめ判定）:
+        1. name と ip が両方ある → ``"{name}_{ip}"``（フルネーム前提）
+        2. 上記以外（nameのみ / ipのみ / 両方なし） → 同一人物とはみなさず、レコード単位で一意なキー
+           （``record_id`` があればそれ、なければ行ラベル）
 
     Parameters
     ----------
@@ -57,11 +56,9 @@ def build_person_key(row: pd.Series, name_column: str, ip_column: str) -> str:
         name = str(row[name_column]).strip()
         ip = str(row[ip_column]).strip()
         return f"{name}_{ip}"
-    if ip_ok:
-        return str(row[ip_column]).strip()
-    if name_ok:
-        return str(row[name_column]).strip()
-
+    # 厳しめの同一人物判定:
+    # name または ip の片方しか無い場合、それだけで同一人物扱いにすると誤判定が起きやすい。
+    # そのため「同一人物ではない」前提で、レコード単位で一意になるキーへフォールバックする。
     if rid_col in row.index and _is_non_empty_scalar(row[rid_col]):
         return str(row[rid_col]).strip()
 

@@ -55,6 +55,7 @@ def export_csv(
 
     summary_cols = [
         "group_id",
+        "group_label",
         "summary_comment",
         "original_comment_count",
         "unique_person_count",

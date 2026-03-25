@@ -28,6 +28,7 @@ import logging
 from pathlib import Path
 
 from src import config
+from src.db import create_run, save_run_outputs
 from src.dedup import deduplicate_in_groups
 from src.embedding import create_embeddings
 from src.exporter import export_csv, output_paths
@@ -137,6 +138,19 @@ def main(argv: list[str] | None = None) -> int:
         grouped_path, details_path = output_paths(args.output_dir)
         log.info("集計CSVを出力しました: %s", grouped_path.resolve())
         log.info("明細CSVを出力しました: %s", details_path.resolve())
+
+        # ------------------------------------------------------------------
+        # 8) DB保存（将来拡張 → 実装）
+        # ------------------------------------------------------------------
+        run = create_run(
+            db_path=config.DB_PATH,
+            input_path=str(args.input),
+            model_name=config.EMBEDDING_MODEL_NAME,
+            similarity_threshold=config.SIMILARITY_THRESHOLD,
+        )
+        save_run_outputs(config.DB_PATH, run, summary_df=summary_df, detail_df=df_d)
+        log.info("SQLiteへ保存しました: %s (run_id=%s)", config.DB_PATH.resolve(), run.run_id)
+
         log.info("処理が正常に完了しました。")
         return 0
 

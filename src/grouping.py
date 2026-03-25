@@ -27,6 +27,47 @@ import pandas as pd
 from src import config
 
 
+def _rule_based_group_label(comments: list[str]) -> str:
+    """
+    グループ内コメントの集合からルールベースでラベルを1つ決める。
+
+    方針:
+    - config.LABEL_KEYWORDS の辞書に従い、キーワードが含まれる回数をラベルごとに数える
+    - 最大スコアのラベルを採用（同点の場合は辞書の定義順を優先）
+    - どれも0なら DEFAULT_GROUP_LABEL
+
+    TODO:
+    - 形態素解析による正規化（活用形や表記揺れの吸収）
+    - 否定表現（「遅くない」等）の扱い
+    - 重み付け（強いキーワードに高スコア）
+    """
+    if len(comments) == 0:
+        return config.DEFAULT_GROUP_LABEL
+
+    # 大文字小文字の差を軽減するため、比較用にlowerも併用（日本語中心なので軽め）
+    normalized = [c if c is not None else "" for c in comments]
+    normalized_lower = [c.lower() for c in normalized]
+
+    best_label = config.DEFAULT_GROUP_LABEL
+    best_score = 0
+
+    for label, keywords in config.LABEL_KEYWORDS.items():
+        score = 0
+        for kw in keywords:
+            kw_str = str(kw)
+            # 英字キーワードは lower 側で比較、それ以外はそのまま
+            if any(ch.isascii() and ch.isalpha() for ch in kw_str):
+                score += sum(1 for c in normalized_lower if kw_str.lower() in c)
+            else:
+                score += sum(1 for c in normalized if kw_str in c)
+
+        if score > best_score:
+            best_score = score
+            best_label = label
+
+    return best_label if best_score > 0 else config.DEFAULT_GROUP_LABEL
+
+
 def assign_groups(
     df: pd.DataFrame,
     embeddings: np.ndarray,
@@ -112,6 +153,7 @@ def build_group_summary(df: pd.DataFrame) -> pd.DataFrame:
     """
     base_columns = [
         "group_id",
+        "group_label",
         "summary_comment",
         "original_comment_count",
         "unique_person_count",
@@ -133,6 +175,12 @@ def build_group_summary(df: pd.DataFrame) -> pd.DataFrame:
         part = df[df["group_id"] == gid]
         # 行順は明細CSVと一致するよう、現在の DataFrame の順で「先頭」を代表にする
         first = part.iloc[0]
+        group_comments_for_label = (
+            part["normalized_comment"].astype(str).tolist()
+            if "normalized_comment" in part.columns
+            else part[config.COMMENT_COLUMN].astype(str).tolist()
+        )
+        group_label = _rule_based_group_label(group_comments_for_label)
         if config.COMMENT_COLUMN in df.columns:
             summary_text = str(first[config.COMMENT_COLUMN])
         else:
@@ -140,6 +188,7 @@ def build_group_summary(df: pd.DataFrame) -> pd.DataFrame:
 
         row_dict: dict = {
             "group_id": int(gid),
+            "group_label": group_label,
             "summary_comment": summary_text,
             "original_comment_count": int(len(part)),
         }
