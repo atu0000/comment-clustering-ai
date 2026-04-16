@@ -121,3 +121,21 @@ py -3 -m streamlit run streamlit_app.py
 - 「実行（CSVアップロード）」タブで CSV をアップロードし、**実行ボタン**で処理します。
 - 結果は画面表示と、**CSVダウンロード**に対応しています。
 - 「過去実行（SQLite）」タブで run 一覧表示、検索（label/summary）、run_id 指定の復元ができます。
+
+### 操作イメージ
+
+1) 起動
+
+![起動時](image/README/起動時.png)
+
+2) CSVアップロード（実行タブ）
+
+![CSVアップロード](image/README/CSVアップロード.png)
+
+3) 実行結果（画面表示 / CSVダウンロード）
+
+![実行結果](image/README/実行結果.png)
+
+4) 過去実行（SQLite）
+
+![過去実行](image/README/過去実行.png)
